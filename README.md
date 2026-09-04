@@ -1,1 +1,1 @@
-# kotlin-life-pilot
+# LifePilot — AI Personal Task Assistant
