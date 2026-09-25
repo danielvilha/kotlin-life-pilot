@@ -20,6 +20,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -80,7 +81,7 @@ fun EditTaskScreen(
         mutableStateOf(false)
     }
 
-    var error by rememberSaveable {
+    var validationError by rememberSaveable {
         mutableStateOf<String?>(null)
     }
 
@@ -101,10 +102,10 @@ fun EditTaskScreen(
                         }
 
                         showDatePicker = false
-                        error = null
+                        validationError = null
                     }
                 ) {
-                    Text("OK")
+                    Text(text = "OK")
                 }
             },
             dismissButton = {
@@ -113,10 +114,10 @@ fun EditTaskScreen(
                         onClick = {
                             dueDateText = ""
                             showDatePicker = false
-                            error = null
+                            validationError = null
                         }
                     ) {
-                        Text("Clear")
+                        Text(text = "Clear")
                     }
 
                     TextButton(
@@ -124,7 +125,7 @@ fun EditTaskScreen(
                             showDatePicker = false
                         }
                     ) {
-                        Text("Cancel")
+                        Text(text = "Cancel")
                     }
                 }
             }
@@ -167,13 +168,19 @@ fun EditTaskScreen(
                 value = title,
                 onValueChange = {
                     title = it
-                    error = null
+                    validationError = null
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
                     Text(text = "Title")
                 },
-                singleLine = true
+                singleLine = true,
+                isError = validationError != null,
+                supportingText = {
+                    validationError?.let {
+                        Text(text = it)
+                    }
+                }
             )
 
             OutlinedTextField(
@@ -181,7 +188,9 @@ fun EditTaskScreen(
                 onValueChange = {
                     description = it
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 label = {
                     Text(text = "Description")
                 }
@@ -204,7 +213,7 @@ fun EditTaskScreen(
                             showDatePicker = true
                         }
                     ) {
-                        Text("Select")
+                        Text(text = "Select")
                     }
                 }
             )
@@ -300,7 +309,10 @@ fun EditTaskScreen(
             }
 
             error?.let {
-                Text(text = it)
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
 
             Row(
@@ -311,17 +323,17 @@ fun EditTaskScreen(
                     onClick = onCancel,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Cancel")
+                    Text(text = "Cancel")
                 }
 
                 Button(
                     onClick = {
                         if (title.isBlank()) {
-                            error = "Title cannot be empty"
+                            validationError = "Title cannot be empty"
                             return@Button
                         }
 
-                        error = null
+                        validationError = null
 
                         onSave(
                             TaskEditForm(
@@ -344,7 +356,7 @@ fun EditTaskScreen(
                                 .height(20.dp)
                         )
                     } else {
-                        Text("Save")
+                        Text(text = "Save")
                     }
                 }
             }

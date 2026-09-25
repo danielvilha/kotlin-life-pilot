@@ -21,9 +21,11 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -43,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danielvilha.lifepilot.domain.model.Priority
 import com.danielvilha.lifepilot.domain.model.Task
@@ -180,6 +183,7 @@ private fun HomeScreen(
                                 onEditClick = {
                                     onEditTask(task.id)
                                 },
+                                onToggleCompleted = onToggleCompleted,
                                 onDeleteClick = onDeleteTask,
                                 isDragging = isDragging
                             )
@@ -197,6 +201,7 @@ private fun TaskCard(
     reorderableScope: ReorderableCollectionItemScope,
     onDragStopped: () -> Unit,
     onEditClick: () -> Unit,
+    onToggleCompleted: (Task) -> Unit,
     onDeleteClick: (Task) -> Unit,
     isDragging: Boolean
 ) {
@@ -262,9 +267,16 @@ private fun TaskCard(
                 }
             )
 
-            Spacer(
-                modifier = Modifier.width(12.dp)
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Checkbox(
+                checked = task.completed,
+                onCheckedChange = {
+                    onToggleCompleted(task)
+                }
             )
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             Column(
                 modifier = Modifier.weight(1f),
@@ -272,6 +284,8 @@ private fun TaskCard(
             ) {
                 Text(
                     text = task.title,
+                    fontSize = 18.sp,
+                    style = MaterialTheme.typography.titleMedium,
                     textDecoration = if (task.completed) {
                         TextDecoration.LineThrough
                     } else {
