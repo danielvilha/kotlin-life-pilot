@@ -27,19 +27,21 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _events = MutableSharedFlow<HomeUiEvent>()
-
     val events = _events.asSharedFlow()
 
     private val _isDeleting = MutableStateFlow(false)
+    private val _isUpdatingCompletion = MutableStateFlow(false)
 
     val uiState: StateFlow<HomeUiState> =
         combine(
             observeTasksUseCase(),
-            _isDeleting
-        ) { tasks, isDeleting ->
+            _isDeleting,
+            _isUpdatingCompletion
+        ) { tasks, isDeleting, isUpdatingCompletion ->
             HomeUiState(
                 tasks = tasks,
-                isDeleting = isDeleting
+                isDeleting = isDeleting,
+                isUpdatingCompletion = isUpdatingCompletion
             )
         }.stateIn(
             scope = viewModelScope,
@@ -55,6 +57,8 @@ class HomeViewModel @Inject constructor(
 
     fun toggleTaskCompleted(task: Task) {
         viewModelScope.launch {
+            _isUpdatingCompletion.value = true
+
             try {
                 updateTaskCompletionUseCase(
                     task = task,
@@ -66,6 +70,8 @@ class HomeViewModel @Inject constructor(
                         e.message ?: "Failed to update task"
                     )
                 )
+            } finally {
+                _isUpdatingCompletion.value = false
             }
         }
     }

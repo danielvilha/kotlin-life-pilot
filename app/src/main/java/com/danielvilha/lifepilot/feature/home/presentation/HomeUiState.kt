@@ -4,5 +4,6 @@ import com.danielvilha.lifepilot.domain.model.Task
 
 data class HomeUiState(
     val tasks: List<Task> = emptyList(),
-    val isDeleting: Boolean = false
+    val isDeleting: Boolean = false,
+    val isUpdatingCompletion: Boolean = false
 )

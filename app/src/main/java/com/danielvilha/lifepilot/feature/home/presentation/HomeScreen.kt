@@ -182,7 +182,8 @@ private fun HomeScreen(
                                 onToggleCompleted = onToggleCompleted,
                                 onDeleteClick = onDeleteTask,
                                 isDragging = isDragging,
-                                isDeleting = uiState.isDeleting
+                                isDeleting = uiState.isDeleting,
+                                isUpdatingCompletion = uiState.isUpdatingCompletion
                             )
                         }
                     }
@@ -201,7 +202,8 @@ private fun TaskCard(
     onToggleCompleted: (Task) -> Unit,
     onDeleteClick: (Task) -> Unit,
     isDragging: Boolean,
-    isDeleting: Boolean
+    isDeleting: Boolean,
+    isUpdatingCompletion: Boolean
 ) {
     val elevation by animateDpAsState(
         targetValue = if (isDragging) 8.dp else 2.dp,
@@ -210,6 +212,18 @@ private fun TaskCard(
 
     var showDeleteDialog by rememberSaveable(task.id) {
         mutableStateOf(false)
+    }
+
+    val contentColor = if (task.completed) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        }
+
+    val textDecoration = if (task.completed) {
+        TextDecoration.LineThrough
+    } else {
+        TextDecoration.None
     }
 
     if (showDeleteDialog) {
@@ -269,7 +283,7 @@ private fun TaskCard(
 
             Checkbox(
                 checked = task.completed,
-                enabled = !isDeleting,
+                enabled = !isDeleting && !isUpdatingCompletion,
                 onCheckedChange = {
                     onToggleCompleted(task)
                 }
@@ -285,23 +299,33 @@ private fun TaskCard(
                     text = task.title,
                     fontSize = 18.sp,
                     style = MaterialTheme.typography.titleMedium,
-                    textDecoration = if (task.completed) {
-                        TextDecoration.LineThrough
-                    } else {
-                        TextDecoration.None
-                    }
+                    color = contentColor,
+                    textDecoration = textDecoration
                 )
 
                 task.description?.let {
-                    Text(text = it)
+                    Text(
+                        text = it,
+                        color = contentColor,
+                        textDecoration = textDecoration
+                    )
                 }
 
-                Text(text = "Priority: ${task.priority}")
+                Text(
+                    text = "Priority: ${task.priority}",
+                    textDecoration = textDecoration
+                )
 
-                Text(text = "Category: ${task.category}")
+                Text(
+                    text = "Category: ${task.category}",
+                    textDecoration = textDecoration
+                )
 
                 task.dueDate?.let {
-                    Text(text = "Due: $it")
+                    Text(
+                        text = "Due: $it",
+                        textDecoration = textDecoration
+                    )
                 }
             }
         }
@@ -314,14 +338,14 @@ private fun TaskCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(
-                enabled = !isDeleting,
+                enabled = !isDeleting&& !isUpdatingCompletion,
                 onClick = onEditClick
             ) {
                 Text(text = "Edit")
             }
 
             IconButton(
-                enabled = !isDeleting,
+                enabled = !isDeleting&& !isUpdatingCompletion,
                 onClick = {
                     showDeleteDialog = true
                 }
