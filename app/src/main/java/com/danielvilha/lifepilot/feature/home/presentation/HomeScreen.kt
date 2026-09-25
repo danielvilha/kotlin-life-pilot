@@ -141,8 +141,8 @@ private fun HomeScreen(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Today's Tasks")
-                Text("No tasks yet.")
+                Text(text = "Today's Tasks")
+                Text(text = "No tasks yet.")
             }
         } else {
             Column(
@@ -152,12 +152,8 @@ private fun HomeScreen(
                     .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Spacer(
-                    modifier = Modifier.height(24.dp)
-                )
-                Text(
-                    text = "Today's Tasks"
-                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(text = "Today's Tasks")
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier
@@ -185,7 +181,8 @@ private fun HomeScreen(
                                 },
                                 onToggleCompleted = onToggleCompleted,
                                 onDeleteClick = onDeleteTask,
-                                isDragging = isDragging
+                                isDragging = isDragging,
+                                isDeleting = uiState.isDeleting
                             )
                         }
                     }
@@ -203,7 +200,8 @@ private fun TaskCard(
     onEditClick: () -> Unit,
     onToggleCompleted: (Task) -> Unit,
     onDeleteClick: (Task) -> Unit,
-    isDragging: Boolean
+    isDragging: Boolean,
+    isDeleting: Boolean
 ) {
     val elevation by animateDpAsState(
         targetValue = if (isDragging) 8.dp else 2.dp,
@@ -271,6 +269,7 @@ private fun TaskCard(
 
             Checkbox(
                 checked = task.completed,
+                enabled = !isDeleting,
                 onCheckedChange = {
                     onToggleCompleted(task)
                 }
@@ -315,12 +314,14 @@ private fun TaskCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(
+                enabled = !isDeleting,
                 onClick = onEditClick
             ) {
                 Text(text = "Edit")
             }
 
             IconButton(
+                enabled = !isDeleting,
                 onClick = {
                     showDeleteDialog = true
                 }

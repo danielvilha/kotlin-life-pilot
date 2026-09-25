@@ -9,9 +9,11 @@ import com.danielvilha.lifepilot.domain.usecase.ReorderTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.UpdateTaskCompletionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,14 +31,22 @@ class HomeViewModel @Inject constructor(
 
     val events = _events.asSharedFlow()
 
+    private val _isDeleting = MutableStateFlow(false)
+
     val uiState: StateFlow<HomeUiState> =
-        observeTasksUseCase()
-            .map { tasks -> HomeUiState(tasks = tasks) }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = HomeUiState()
+        combine(
+            observeTasksUseCase(),
+            _isDeleting
+        ) { tasks, isDeleting ->
+            HomeUiState(
+                tasks = tasks,
+                isDeleting = isDeleting
             )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = HomeUiState()
+        )
 
     fun onTasksReordered(tasks: List<Task>) {
         viewModelScope.launch {
@@ -63,19 +73,22 @@ class HomeViewModel @Inject constructor(
 
     fun deleteTask(task: Task) {
         viewModelScope.launch {
+            _isDeleting.value = true
+
             try {
                 deleteTaskUseCase(task)
 
                 _events.emit(
                     HomeUiEvent.ShowMessage("Task deleted")
                 )
-
             } catch (e: Exception) {
                 _events.emit(
                     HomeUiEvent.ShowMessage(
                         e.message ?: "Failed to delete task"
                     )
                 )
+            } finally {
+                _isDeleting.value = false
             }
         }
     }
