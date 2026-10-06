@@ -48,9 +48,7 @@ class AiViewModel @Inject constructor(
             try {
                 createTasksUseCase(parsedTasks)
 
-                _uiState.value = _uiState.value.copy(
-                    isSaving = false
-                )
+                _uiState.value = AiUiState()
 
                 _events.emit(AiUiEvent.TasksCreated)
             } catch (e: Exception) {

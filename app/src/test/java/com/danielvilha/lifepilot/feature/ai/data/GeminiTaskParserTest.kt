@@ -61,13 +61,13 @@ class GeminiTaskParserTest {
             )
         )
 
-        whenever(geminiApi.createInteraction(eq("gemini-3.8-flash"), any(), any()))
+        whenever(geminiApi.createInteraction(eq("gemini-3.5-flash-lite"), any(), any()))
             .thenReturn(mockResponse)
 
         val result = parser.parseTask("Buy milk and eggs tomorrow")
 
         val captor = argumentCaptor<GeminiRequest>()
-        verify(geminiApi).createInteraction(eq("gemini-3.8-flash"), any(), captor.capture())
+        verify(geminiApi).createInteraction(eq("gemini-3.5-flash-lite"), any(), captor.capture())
 
         val request = captor.firstValue
         val schema = request.generationConfig?.responseSchema

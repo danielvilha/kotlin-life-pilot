@@ -647,4 +647,37 @@ class AiViewModelTest {
 
         eventsJob.cancel()
     }
+
+    @Test
+    fun `should clear AI state when tasks are created successfully`() = runTest {
+        val input = "Buy groceries tomorrow"
+
+        val parsedTasks = listOf(
+            ParsedTask(
+                title = "Buy groceries",
+                description = null,
+                dueDate = LocalDate.of(2026, 10, 7),
+                priority = Priority.MEDIUM,
+                category = TaskCategory.SHOPPING
+            )
+        )
+
+        whenever(
+            parseTaskUseCase(input)
+        ).thenReturn(parsedTasks)
+
+        viewModel.onInputChanged(input)
+        viewModel.parseTask()
+
+        testScheduler.advanceUntilIdle()
+
+        viewModel.createTasks()
+
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(
+            AiUiState(),
+            viewModel.uiState.value
+        )
+    }
 }
