@@ -5,6 +5,7 @@ import com.danielvilha.lifepilot.domain.model.ParsedTask
 data class AiUiState(
     val input: String = "",
     val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
     val parsedTasks: List<ParsedTask> = emptyList(),
     val error: String? = null,
     val editingTaskIndex: Int? = null

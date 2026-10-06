@@ -2,8 +2,7 @@ package com.danielvilha.lifepilot.feature.ai.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.danielvilha.lifepilot.domain.model.ParsedTask
-import com.danielvilha.lifepilot.domain.usecase.CreateTaskUseCase
+import com.danielvilha.lifepilot.domain.usecase.CreateTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.ParseTaskUseCase
 import com.danielvilha.lifepilot.feature.edit.presentation.TaskEditForm
 import com.danielvilha.lifepilot.feature.edit.presentation.toParsedTask
@@ -20,7 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AiViewModel @Inject constructor(
     private val parseTaskUseCase: ParseTaskUseCase,
-    private val createTaskUseCase: CreateTaskUseCase
+    private val createTasksUseCase: CreateTasksUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiUiState())
@@ -35,14 +34,29 @@ class AiViewModel @Inject constructor(
         )
     }
 
-    fun createTask(parsedTask: ParsedTask) {
+    fun createTasks() {
+        val parsedTasks = _uiState.value.parsedTasks
+
+        if (parsedTasks.isEmpty()) return
+
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSaving = true,
+                error = null
+            )
+
             try {
-                createTaskUseCase(parsedTask)
-                _events.emit(AiUiEvent.TaskCreated)
+                createTasksUseCase(parsedTasks)
+
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false
+                )
+
+                _events.emit(AiUiEvent.TasksCreated)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to create task"
+                    isSaving = false,
+                    error = e.message ?: "Failed to create tasks"
                 )
             }
         }
@@ -106,6 +120,21 @@ class AiViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             parsedTasks = updatedTasks,
             editingTaskIndex = null,
+            error = null
+        )
+    }
+
+    fun removeTask(index: Int) {
+        val currentTasks = _uiState.value.parsedTasks
+
+        if (index !in currentTasks.indices) return
+
+        val updatedTasks = currentTasks.toMutableList().apply {
+            removeAt(index)
+        }
+
+        _uiState.value = _uiState.value.copy(
+            parsedTasks = updatedTasks,
             error = null
         )
     }

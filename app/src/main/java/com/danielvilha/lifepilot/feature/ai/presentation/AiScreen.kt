@@ -3,11 +3,11 @@ package com.danielvilha.lifepilot.feature.ai.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
@@ -15,9 +15,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,7 +49,7 @@ fun AiScreen(
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                AiUiEvent.TaskCreated -> onTaskCreated()
+                AiUiEvent.TasksCreated -> onTaskCreated()
             }
         }
     }
@@ -69,8 +70,9 @@ fun AiScreen(
             onBack = onBack,
             onInputChanged = viewModel::onInputChanged,
             onParseTask = viewModel::parseTask,
-            onCreateClick = viewModel::createTask,
-            onEditClick = viewModel::startEditingTask
+            onCreateClick = viewModel::createTasks,
+            onEditClick = viewModel::startEditingTask,
+            onRemoveClick = viewModel::removeTask
         )
     }
 }
@@ -82,8 +84,9 @@ fun AiScreen(
     onBack: () -> Unit = {},
     onInputChanged: (String) -> Unit,
     onParseTask: () -> Unit,
-    onCreateClick: (ParsedTask) -> Unit,
+    onCreateClick: () -> Unit,
     onEditClick: (Int) -> Unit,
+    onRemoveClick: (Int) -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -103,7 +106,6 @@ fun AiScreen(
                 }
             )
         }
-
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -141,16 +143,49 @@ fun AiScreen(
             }
 
             if (uiState.parsedTasks.isNotEmpty()) {
-                Text(text = "AI found ${uiState.parsedTasks.size} task(s)")
+                Text(
+                    text = "AI found ${uiState.parsedTasks.size} task(s)"
+                )
 
-                uiState.parsedTasks.forEachIndexed { index, task ->
-                    ParsedTaskCard(
-                        task = task,
-                        onEditClick = {
-                            onEditClick(index)
-                        },
-                        onCreateClick = onCreateClick
-                    )
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    itemsIndexed(
+                        items = uiState.parsedTasks
+                    ) { index, task ->
+
+                        ParsedTaskCard(
+                            task = task,
+                            onEditClick = {
+                                onEditClick(index)
+                            },
+                            onRemoveClick = {
+                                onRemoveClick(index)
+                            }
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onCreateClick,
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    enabled = !uiState.isSaving
+                ) {
+                    if (uiState.isSaving) {
+                        CircularProgressIndicator()
+                    } else {
+                        Text(
+                            text = if (uiState.parsedTasks.size == 1) {
+                                "Create task"
+                            } else {
+                                "Create ${uiState.parsedTasks.size} tasks"
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -160,8 +195,8 @@ fun AiScreen(
 @Composable
 private fun ParsedTaskCard(
     task: ParsedTask,
-    onCreateClick: (ParsedTask) -> Unit,
     onEditClick: () -> Unit,
+    onRemoveClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -170,44 +205,57 @@ private fun ParsedTaskCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(
+                horizontal = 16.dp,
+                vertical = 12.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(text = task.title)
-
-            task.description?.let {
-                Text(text = it)
-            }
-
-            HorizontalDivider()
-
-            Text(text = "Priority: ${task.priority}")
-
-            Text(text = "Category: ${task.category}")
-
-            task.dueDate?.let {
-                Text(text = "Due: $it")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             Row(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    text = task.title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium
+                )
+
                 TextButton(
-                    onClick = { onEditClick() }
+                    onClick = onEditClick
                 ) {
                     Text(text = "Edit")
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
                 TextButton(
-                    onClick = { onCreateClick(task) }
+                    onClick = onRemoveClick
                 ) {
-                    Text(text = "Create")
+                    Text(text = "Remove")
                 }
             }
+
+            task.description
+                ?.takeIf { it.isNotBlank() }
+                ?.let { description ->
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+            Text(
+                text = buildString {
+                    append(task.priority.name)
+                    append("  •  ")
+                    append(task.category.name)
+
+                    task.dueDate?.let { dueDate ->
+                        append("  •  ")
+                        append(dueDate)
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -233,6 +281,7 @@ private fun AiScreenPreview() {
         onInputChanged = {},
         onParseTask = {},
         onCreateClick = {},
-        onEditClick = {}
+        onEditClick = {},
+        onRemoveClick = {}
     )
 }

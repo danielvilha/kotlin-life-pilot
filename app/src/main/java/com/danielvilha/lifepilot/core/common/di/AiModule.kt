@@ -14,15 +14,15 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class AiModule {
 
-    @Binds
-    @Singleton
-    abstract fun bindAiTaskParser(
-        implementation: FakeAiTaskParser
-    ): AiTaskParser
-
 //    @Binds
 //    @Singleton
 //    abstract fun bindAiTaskParser(
-//        implementation: GeminiTaskParser
+//        implementation: FakeAiTaskParser
 //    ): AiTaskParser
+
+    @Binds
+    @Singleton
+    abstract fun bindAiTaskParser(
+        implementation: GeminiTaskParser
+    ): AiTaskParser
 }

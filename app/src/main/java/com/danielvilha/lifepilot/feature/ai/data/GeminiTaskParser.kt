@@ -1,12 +1,15 @@
 package com.danielvilha.lifepilot.feature.ai.data
 
+import android.util.Log
 import com.danielvilha.lifepilot.core.network.GeminiApi
 import com.danielvilha.lifepilot.core.network.GeminiRequest
-import com.danielvilha.lifepilot.core.network.GeminiResponseFormat
 import com.danielvilha.lifepilot.BuildConfig
+import com.danielvilha.lifepilot.core.network.Content
 import com.danielvilha.lifepilot.core.network.GeminiResponse
 import com.danielvilha.lifepilot.core.network.GeminiTask
 import com.danielvilha.lifepilot.core.network.GeminiTaskResponse
+import com.danielvilha.lifepilot.core.network.GenerationConfig
+import com.danielvilha.lifepilot.core.network.Part
 import com.danielvilha.lifepilot.domain.model.ParsedTask
 import com.danielvilha.lifepilot.domain.model.Priority
 import com.danielvilha.lifepilot.domain.model.TaskCategory
@@ -26,12 +29,16 @@ class GeminiTaskParser @Inject constructor(
 
     override suspend fun parseTask(input: String): List<ParsedTask> {
         val request = GeminiRequest(
-            model = "gemini-3.8-flash",
-            input = buildPrompt(input),
-            response_format = GeminiResponseFormat(
-                type = "text",
-                mime_type = "application/json",
-                schema = taskResponseSchema()
+            contents = listOf(
+                Content(
+                    parts = listOf(
+                        Part(text = buildPrompt(input))
+                    )
+                )
+            ),
+            generationConfig = GenerationConfig(
+                responseMimeType = "application/json",
+                responseSchema = taskResponseSchema()
             )
         )
 
@@ -40,10 +47,11 @@ class GeminiTaskParser @Inject constructor(
             request = request
         )
 
-        val outputText = response.steps
-            ?.lastOrNull { it.type == "model_output" }
+        val outputText = response.candidates
+            ?.firstOrNull()
             ?.content
-            ?.firstOrNull { it.type == "text" }
+            ?.parts
+            ?.firstOrNull()
             ?.text
             ?: throw IllegalStateException(
                 "Gemini response did not contain model output"
@@ -107,24 +115,26 @@ class GeminiTaskParser @Inject constructor(
 
     private fun taskResponseSchema(): Map<String, Any> {
         return mapOf(
-            "type" to "object",
+            "type" to "OBJECT",
             "properties" to mapOf(
                 "tasks" to mapOf(
-                    "type" to "array",
+                    "type" to "ARRAY",
                     "items" to mapOf(
-                        "type" to "object",
+                        "type" to "OBJECT",
                         "properties" to mapOf(
                             "title" to mapOf(
-                                "type" to "string"
+                                "type" to "STRING"
                             ),
                             "description" to mapOf(
-                                "type" to listOf("string", "null")
+                                "type" to "STRING",
+                                "nullable" to true
                             ),
                             "dueDate" to mapOf(
-                                "type" to listOf("string", "null")
+                                "type" to "STRING",
+                                "nullable" to true
                             ),
                             "priority" to mapOf(
-                                "type" to "string",
+                                "type" to "STRING",
                                 "enum" to listOf(
                                     "LOW",
                                     "MEDIUM",
@@ -132,7 +142,7 @@ class GeminiTaskParser @Inject constructor(
                                 )
                             ),
                             "category" to mapOf(
-                                "type" to "string",
+                                "type" to "STRING",
                                 "enum" to listOf(
                                     "PERSONAL",
                                     "WORK",
@@ -145,8 +155,6 @@ class GeminiTaskParser @Inject constructor(
                         ),
                         "required" to listOf(
                             "title",
-                            "description",
-                            "dueDate",
                             "priority",
                             "category"
                         )
@@ -177,10 +185,20 @@ class GeminiTaskParser @Inject constructor(
         repeat(maxAttempts) { attempt ->
             try {
                 return geminiApi.createInteraction(
+                    model = "gemini-3.5-flash-lite",
                     apiKey = apiKey,
                     request = request
                 )
             } catch (e: HttpException) {
+                val errorBody = e.response()
+                    ?.errorBody()
+                    ?.string()
+
+                Log.e(
+                    "GeminiTaskParser",
+                    "HTTP ${e.code()}: $errorBody",
+                    e
+                )
 
                 val retryable = e.code() == 408 ||
                         e.code() == 429 ||
