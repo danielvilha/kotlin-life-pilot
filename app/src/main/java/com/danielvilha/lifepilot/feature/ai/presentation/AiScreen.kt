@@ -93,7 +93,7 @@ fun AiScreen(
         topBar = {
             TopAppBar(
                 modifier = Modifier.fillMaxWidth(),
-                title = { Text("Create with AI") },
+                title = { Text(text = "Create with AI") },
                 navigationIcon = {
                     IconButton(
                         onClick = onBack

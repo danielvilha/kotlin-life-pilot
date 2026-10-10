@@ -97,4 +97,14 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
+
+    fun showPlanAppliedMessage() {
+        viewModelScope.launch {
+            _events.emit(
+                HomeUiEvent.ShowMessage(
+                    "Your daily plan has been applied successfully!"
+                )
+            )
+        }
+    }
 }

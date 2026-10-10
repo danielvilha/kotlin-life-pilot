@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -58,7 +59,10 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onCreateTask: () -> Unit,
-    onEditTask: (String) -> Unit
+    onEditTask: (String) -> Unit,
+    onPlanMyDay: () -> Unit,
+    planApplied: Boolean = false,
+    onPlanAppliedConsumed: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -78,10 +82,18 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(planApplied) {
+        if (planApplied) {
+            viewModel.showPlanAppliedMessage()
+            onPlanAppliedConsumed()
+        }
+    }
+
     HomeScreen(
         uiState = uiState,
         onCreateTask = onCreateTask,
         onEditTask = onEditTask,
+        onPlanMyDay = onPlanMyDay,
         onTasksReordered = viewModel::onTasksReordered,
         onToggleCompleted = viewModel::toggleTaskCompleted,
         onDeleteTask = viewModel::deleteTask,
@@ -94,6 +106,7 @@ private fun HomeScreen(
     uiState: HomeUiState,
     onCreateTask: () -> Unit,
     onEditTask: (String) -> Unit,
+    onPlanMyDay: () -> Unit,
     onTasksReordered: (List<Task>) -> Unit,
     onToggleCompleted: (Task) -> Unit,
     onDeleteTask: (Task) -> Unit,
@@ -152,8 +165,16 @@ private fun HomeScreen(
                     .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(text = "Today's Tasks")
+
+                Button(
+                    onClick = onPlanMyDay,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = "Plan My Day")
+                }
+
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier
@@ -377,6 +398,7 @@ private fun HomeScreenPreview() {
             )
         ),
         onEditTask = {},
+        onPlanMyDay = {},
         onCreateTask = {},
         onToggleCompleted = {},
         onTasksReordered = {},

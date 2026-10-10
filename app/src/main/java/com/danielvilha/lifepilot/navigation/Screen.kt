@@ -11,6 +11,9 @@ sealed interface Screen {
     data object Ai : Screen
 
     @Serializable
+    data object PlanMyDay : Screen
+
+    @Serializable
     data class EditTask(
         val taskId: String
     ) : Screen

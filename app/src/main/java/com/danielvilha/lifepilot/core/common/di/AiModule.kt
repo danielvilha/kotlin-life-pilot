@@ -1,8 +1,10 @@
 package com.danielvilha.lifepilot.core.common.di
 
 import com.danielvilha.lifepilot.domain.repository.AiTaskParser
+import com.danielvilha.lifepilot.feature.ai.data.AiTaskPlanner
 import com.danielvilha.lifepilot.feature.ai.data.FakeAiTaskParser
 import com.danielvilha.lifepilot.feature.ai.data.GeminiTaskParser
+import com.danielvilha.lifepilot.feature.ai.data.GeminiTaskPlanner
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -25,4 +27,9 @@ abstract class AiModule {
     abstract fun bindAiTaskParser(
         implementation: GeminiTaskParser
     ): AiTaskParser
+
+    @Binds
+    abstract fun bindAiTaskPlanner(
+        implementation: GeminiTaskPlanner
+    ): AiTaskPlanner
 }
