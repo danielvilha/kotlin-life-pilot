@@ -25,16 +25,58 @@ class GenerateTaskSuggestionsUseCase @Inject constructor(
             pendingTasks
         )
 
+        val suggestionTaskIds = suggestions.map { suggestion ->
+            suggestion.taskId
+        }
+
+        if (suggestionTaskIds.size != suggestionTaskIds.distinct().size) {
+            throw IllegalStateException(
+                "AI plan contains duplicate task IDs"
+            )
+        }
+
         val validTaskIds = pendingTasks
             .map { task -> task.id }
             .toSet()
 
-        return suggestions
-            .filter { suggestion ->
-                suggestion.taskId in validTaskIds
-            }
-            .sortedBy { suggestion ->
-                suggestion.suggestedOrder
-            }
+        val unknownTaskIds = suggestionTaskIds.toSet() - validTaskIds
+
+        if (unknownTaskIds.isNotEmpty()) {
+            throw IllegalStateException(
+                "AI plan contains unknown task IDs"
+            )
+        }
+
+        val missingTaskIds = validTaskIds - suggestionTaskIds.toSet()
+
+        if (missingTaskIds.isNotEmpty()) {
+            throw IllegalStateException(
+                "AI plan is missing pending tasks"
+            )
+        }
+
+        val suggestedOrders = suggestions.map { suggestion ->
+            suggestion.suggestedOrder
+        }
+
+        if (suggestedOrders.size != suggestedOrders.distinct().size) {
+            throw IllegalStateException(
+                "AI plan contains duplicate suggested orders"
+            )
+        }
+
+        val sortedOrders = suggestedOrders.sorted()
+
+        val expectedOrders = suggestions.indices.toList()
+
+        if (sortedOrders != expectedOrders) {
+            throw IllegalStateException(
+                "AI plan contains non-consecutive suggested orders"
+            )
+        }
+
+        return suggestions.sortedBy { suggestion ->
+            suggestion.suggestedOrder
+        }
     }
 }

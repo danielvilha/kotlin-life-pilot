@@ -60,7 +60,12 @@ class GeminiTaskPlanner @Inject constructor(
             TaskSuggestionsResponse::class.java
         )
 
-        return suggestionsResponse.suggestions.map { suggestion ->
+        val suggestions = suggestionsResponse?.suggestions
+            ?: throw IllegalStateException(
+                "Gemini response did not contain valid suggestions"
+            )
+
+        return suggestions.map { suggestion ->
             suggestion.toDomain()
         }
     }
@@ -155,11 +160,15 @@ class GeminiTaskPlanner @Inject constructor(
                     ?.errorBody()
                     ?.string()
 
-                Log.e(
-                    "GeminiTaskPlanner",
-                    "HTTP ${e.code()}: $errorBody",
-                    e
-                )
+                try {
+                    Log.e(
+                        "GeminiTaskPlanner",
+                        "HTTP ${e.code()}: $errorBody",
+                        e
+                    )
+                } catch (_: Throwable) {
+                    // Ignored in unit tests where Android Log is not mocked
+                }
 
                 val retryable =
                     e.code() == 408 ||
@@ -183,19 +192,42 @@ class GeminiTaskPlanner @Inject constructor(
 }
 
 private data class TaskSuggestionsResponse(
-    val suggestions: List<TaskSuggestionDto>
+    val suggestions: List<TaskSuggestionDto>?
 )
 
 private data class TaskSuggestionDto(
-    val taskId: String,
-    val reason: String,
-    val suggestedOrder: Int
+    val taskId: String?,
+    val reason: String?,
+    val suggestedOrder: Int?
 )
 
 private fun TaskSuggestionDto.toDomain(): TaskSuggestion {
+    val validTaskId = taskId
+        ?.takeIf { it.isNotBlank() }
+        ?: throw IllegalStateException(
+            "Gemini response contains a suggestion without taskId"
+        )
+
+    val validReason = reason
+        ?.takeIf { it.isNotBlank() }
+        ?: throw IllegalStateException(
+            "Gemini response contains a suggestion without reason"
+        )
+
+    val validOrder = suggestedOrder
+        ?: throw IllegalStateException(
+            "Gemini response contains a suggestion without suggestedOrder"
+        )
+
+    if (validOrder < 0) {
+        throw IllegalStateException(
+            "Gemini response contains an invalid suggestedOrder"
+        )
+    }
+
     return TaskSuggestion(
-        taskId = taskId,
-        reason = reason,
-        suggestedOrder = suggestedOrder
+        taskId = validTaskId,
+        reason = validReason,
+        suggestedOrder = validOrder
     )
 }

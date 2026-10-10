@@ -16,6 +16,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
+import kotlin.test.assertFailsWith
 
 class GenerateTaskSuggestionsUseCaseTest {
 
@@ -169,7 +170,7 @@ class GenerateTaskSuggestionsUseCaseTest {
     }
 
     @Test
-    fun `should discard suggestions with unknown task id`() = runTest {
+    fun `should reject suggestions with unknown task id`() = runTest {
         val tasks = listOf(
             Task(
                 id = "task-1",
@@ -221,17 +222,14 @@ class GenerateTaskSuggestionsUseCaseTest {
             )
         )
 
-        val result = useCase(tasks)
+        val exception = assertFailsWith<IllegalStateException> {
+            useCase(tasks)
+        }
 
         assertEquals(
-            listOf(
-                validSuggestion1,
-                validSuggestion2
-            ),
-            result
+            "AI plan contains unknown task IDs",
+            exception.message
         )
-
-        verify(aiTaskPlanner).generateSuggestions(tasks)
     }
 
     @Test
@@ -306,6 +304,164 @@ class GenerateTaskSuggestionsUseCaseTest {
                 thirdSuggestion
             ),
             result
+        )
+    }
+
+    @Test
+    fun `should reject suggestions with duplicate task IDs`() = runTest {
+        val tasks = listOf(
+            createTask(id = "task-1"),
+            createTask(id = "task-2")
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "High priority",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "Important task",
+                suggestedOrder = 1
+            )
+        )
+
+        whenever(
+            aiTaskPlanner.generateSuggestions(any())
+        ).thenReturn(suggestions)
+
+        val exception = assertFailsWith<IllegalStateException> {
+            useCase(tasks)
+        }
+
+        assertEquals(
+            "AI plan contains duplicate task IDs",
+            exception.message
+        )
+    }
+
+    @Test
+    fun `should reject suggestions when a pending task is missing`() = runTest {
+        val tasks = listOf(
+            createTask(id = "task-1"),
+            createTask(id = "task-2"),
+            createTask(id = "task-3")
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "High priority",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-3",
+                reason = "Can be completed next",
+                suggestedOrder = 1
+            )
+        )
+
+        whenever(
+            aiTaskPlanner.generateSuggestions(any())
+        ).thenReturn(suggestions)
+
+        val exception = assertFailsWith<IllegalStateException> {
+            useCase(tasks)
+        }
+
+        assertEquals(
+            "AI plan is missing pending tasks",
+            exception.message
+        )
+    }
+
+    @Test
+    fun `should reject suggestions with duplicate suggested orders`() = runTest {
+        val tasks = listOf(
+            createTask(id = "task-1"),
+            createTask(id = "task-2")
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "High priority",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-2",
+                reason = "Due soon",
+                suggestedOrder = 0
+            )
+        )
+
+        whenever(
+            aiTaskPlanner.generateSuggestions(any())
+        ).thenReturn(suggestions)
+
+        val exception = assertFailsWith<IllegalStateException> {
+            useCase(tasks)
+        }
+
+        assertEquals(
+            "AI plan contains duplicate suggested orders",
+            exception.message
+        )
+    }
+
+    @Test
+    fun `should reject suggestions with non consecutive orders`() = runTest {
+        val tasks = listOf(
+            createTask(id = "task-1"),
+            createTask(id = "task-2"),
+            createTask(id = "task-3")
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "High priority",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-2",
+                reason = "Due soon",
+                suggestedOrder = 2
+            ),
+            TaskSuggestion(
+                taskId = "task-3",
+                reason = "Can be completed later",
+                suggestedOrder = 4
+            )
+        )
+
+        whenever(
+            aiTaskPlanner.generateSuggestions(any())
+        ).thenReturn(suggestions)
+
+        val exception = assertFailsWith<IllegalStateException> {
+            useCase(tasks)
+        }
+
+        assertEquals(
+            "AI plan contains non-consecutive suggested orders",
+            exception.message
+        )
+    }
+
+    private fun createTask(
+        id: String
+    ): Task {
+        return Task(
+            id = id,
+            title = "Generated task $id",
+            description = null,
+            dueDate = LocalDate.now(),
+            priority = Priority.MEDIUM,
+            category = TaskCategory.PERSONAL,
+            completed = false,
+            position = 0
         )
     }
 }

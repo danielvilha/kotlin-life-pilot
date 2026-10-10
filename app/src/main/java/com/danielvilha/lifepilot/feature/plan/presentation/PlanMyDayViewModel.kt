@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 @HiltViewModel
 class PlanMyDayViewModel @Inject constructor(
@@ -37,24 +38,52 @@ class PlanMyDayViewModel @Inject constructor(
     }
 
     fun generatePlan() {
+        val currentState = _uiState.value
+
+        if (
+            currentState.isLoading ||
+            currentState.isApplying ||
+            currentState.tasks.none { !it.completed }
+        ) return
+
         val tasks = _uiState.value.tasks
+
+        _uiState.value = currentState.copy(
+            isLoading = true,
+            error = null,
+            suggestions = emptyList(),
+            planningSnapshot = tasks.toList()
+        )
 
         if (tasks.isEmpty()) return
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                error = null,
-                suggestions = emptyList()
-            )
-
             try {
                 val suggestions = generateTaskSuggestionsUseCase(tasks)
 
-                _uiState.value = _uiState.value.copy(
+                val latestState = _uiState.value
+
+                if (latestState.tasks != latestState.planningSnapshot) {
+                    _uiState.value = latestState.copy(
+                        isLoading = false,
+                        suggestions = emptyList(),
+                        error = "Your tasks have changed. Please generate a new plan.",
+                        planningSnapshot = emptyList()
+                    )
+                    return@launch
+                }
+
+                _uiState.value = latestState.copy(
                     isLoading = false,
                     suggestions = suggestions
                 )
+            } catch (e: CancellationException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false
+                )
+
+                throw e
+
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -72,6 +101,16 @@ class PlanMyDayViewModel @Inject constructor(
             currentState.isLoading ||
             currentState.suggestions.isEmpty()
         ) return
+
+        val currentTasks = currentState.tasks
+        val snapshotTasks = currentState.planningSnapshot
+
+        if (currentTasks != snapshotTasks) {
+            _uiState.value = currentState.copy(
+                error = "Your tasks have changed. Please generate a new plan."
+            )
+            return
+        }
 
         val tasksById = currentState.tasks.associateBy { it.id }
 
@@ -105,21 +144,30 @@ class PlanMyDayViewModel @Inject constructor(
                 task.copy(position = index)
             }
 
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isApplying = true,
-                error = null
-            )
+        _uiState.value = _uiState.value.copy(
+            isApplying = true,
+            error = null
+        )
 
+        viewModelScope.launch {
             try {
                 reorderTasksUseCase(reorderedTasks)
 
                 _uiState.value = _uiState.value.copy(
                     isApplying = false,
-                    suggestions = emptyList()
+                    suggestions = emptyList(),
+                    planningSnapshot = emptyList()
                 )
 
                 _uiEvent.emit(PlanMyDayUiEvent.PlanApplied)
+
+            } catch (e: CancellationException) {
+                _uiState.value = _uiState.value.copy(
+                    isApplying = false
+                )
+
+                throw e
+
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isApplying = false,

@@ -8,6 +8,7 @@ data class PlanMyDayUiState(
     val suggestions: List<TaskSuggestion> = emptyList(),
     val isLoading: Boolean = false,
     val isApplying: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val planningSnapshot: List<Task> = emptyList()
 )
 

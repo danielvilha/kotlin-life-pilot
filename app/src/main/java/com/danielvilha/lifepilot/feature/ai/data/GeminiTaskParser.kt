@@ -194,11 +194,15 @@ class GeminiTaskParser @Inject constructor(
                     ?.errorBody()
                     ?.string()
 
-                Log.e(
-                    "GeminiTaskParser",
-                    "HTTP ${e.code()}: $errorBody",
-                    e
-                )
+                try {
+                    Log.e(
+                        "GeminiTaskParser",
+                        "HTTP ${e.code()}: $errorBody",
+                        e
+                    )
+                } catch (_: Throwable) {
+                    // Ignored in unit tests where Android Log is not mocked
+                }
 
                 val retryable = e.code() == 408 ||
                         e.code() == 429 ||
