@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -30,7 +31,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,6 +44,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danielvilha.lifepilot.domain.model.Priority
 import com.danielvilha.lifepilot.domain.model.Task
 import com.danielvilha.lifepilot.domain.model.TaskCategory
+import com.danielvilha.lifepilot.domain.model.TaskSuggestion
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 @Composable
 fun PlanMyDayScreen(
@@ -63,6 +70,7 @@ fun PlanMyDayScreen(
         uiState = uiState,
         onGeneratePlanClick = viewModel::generatePlan,
         onApplyPlanClick = viewModel::applyPlan,
+        onMoveSuggestion = viewModel::moveSuggestion,
         onBackClick = onBackClick
     )
 }
@@ -73,7 +81,8 @@ internal fun PlanMyDayContent(
     uiState: PlanMyDayUiState,
     onGeneratePlanClick: () -> Unit,
     onApplyPlanClick: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onMoveSuggestion: (Int, Int) -> Unit
 ) {
     val plannedTasks = remember(
         uiState.tasks,
@@ -100,6 +109,35 @@ internal fun PlanMyDayContent(
 
     val isPlanOutdated = uiState.suggestions.isNotEmpty() &&
             uiState.tasks != uiState.planningSnapshot
+
+    val lazyListState = rememberLazyListState()
+
+    val reorderableTasks = remember {
+        mutableStateListOf<Pair<Task, TaskSuggestion>>()
+    }
+
+    LaunchedEffect(plannedTasks) {
+        reorderableTasks.clear()
+        reorderableTasks.addAll(plannedTasks)
+    }
+
+    var dragStartOrder by remember {
+        mutableStateOf<List<String>>(emptyList())
+    }
+
+    val reorderableState = rememberReorderableLazyListState(
+        lazyListState
+    ) { from, to ->
+
+        if (dragStartOrder.isEmpty()) {
+            dragStartOrder = reorderableTasks.map { it.first.id }
+        }
+
+        reorderableTasks.add(
+            to.index,
+            reorderableTasks.removeAt(from.index)
+        )
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -226,6 +264,7 @@ internal fun PlanMyDayContent(
                 )
 
                 LazyColumn(
+                    state = lazyListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
@@ -235,14 +274,41 @@ internal fun PlanMyDayContent(
                     )
                 ) {
                     items(
-                        items = plannedTasks,
+                        items = reorderableTasks,
                         key = { (task, _) -> task.id }
                     ) { (task, suggestion) ->
 
-                        PlanSuggestionCard(
-                            task = task,
-                            suggestion = suggestion
-                        )
+                        ReorderableItem(
+                            state = reorderableState,
+                            key = task.id
+                        ) { isDragging ->
+
+                            PlanSuggestionCard(
+                                task = task,
+                                suggestion = suggestion,
+                                reorderableScope = this,
+                                isDragging = isDragging,
+                                displayOrder = reorderableTasks.indexOfFirst {
+                                    it.first.id == task.id
+                                },
+                                onDragStopped = {
+                                    val fromIndex = dragStartOrder.indexOf(task.id)
+                                    val toIndex = reorderableTasks.indexOfFirst {
+                                        it.first.id == task.id
+                                    }
+
+                                    if (
+                                        fromIndex >= 0 &&
+                                        toIndex >= 0 &&
+                                        fromIndex != toIndex
+                                    ) {
+                                        onMoveSuggestion(fromIndex, toIndex)
+                                    }
+
+                                    dragStartOrder = emptyList()
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -290,6 +356,7 @@ private fun PlanMyDayScreenPreview() {
         ),
         onGeneratePlanClick = {},
         onApplyPlanClick = {},
+        onMoveSuggestion = { _, _ -> },
         onBackClick = {}
     )
 }
@@ -305,6 +372,7 @@ private fun PlanMyDayScreenErrorPreview() {
         ),
         onGeneratePlanClick = {},
         onApplyPlanClick = {},
+        onMoveSuggestion = { _, _ -> },
         onBackClick = {}
     )
 }

@@ -1361,6 +1361,202 @@ class PlanMyDayViewModelTest {
         assertEquals(false, viewModel.uiState.value.isLoading)
     }
 
+    @Test
+    fun `should reorder suggestions when user moves a task`() = runTest {
+        val tasks = listOf(
+            createTask("task-1", "Finish report"),
+            createTask("task-2", "Buy groceries"),
+            createTask("task-3", "Go to the gym")
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "High priority.",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-2",
+                reason = "Can be done later.",
+                suggestedOrder = 1
+            ),
+            TaskSuggestion(
+                taskId = "task-3",
+                reason = "Low priority.",
+                suggestedOrder = 2
+            )
+        )
+
+        whenever(observeTasksUseCase()).thenReturn(
+            MutableStateFlow(tasks)
+        )
+
+        whenever(
+            generateTaskSuggestionsUseCase(tasks)
+        ).thenReturn(suggestions)
+
+        val viewModel = getViewModel()
+
+        viewModel.generatePlan()
+
+        assertEquals(
+            suggestions,
+            viewModel.uiState.value.suggestions
+        )
+
+        viewModel.moveSuggestion(
+            fromIndex = 0,
+            toIndex = 2
+        )
+
+        val reorderedSuggestions = viewModel.uiState.value.suggestions
+            .sortedBy { it.suggestedOrder }
+
+        assertEquals(
+            listOf("task-2", "task-3", "task-1"),
+            reorderedSuggestions.map { it.taskId }
+        )
+
+        assertEquals(
+            listOf(0, 1, 2),
+            reorderedSuggestions.map { it.suggestedOrder }
+        )
+    }
+
+    @Test
+    fun `should apply manually reordered suggestions`() = runTest {
+        val tasks = listOf(
+            createTask("task-1", "Finish report").copy(position = 0),
+            createTask("task-2", "Buy groceries").copy(position = 1),
+            createTask("task-3", "Go to the gym").copy(position = 2)
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "High priority.",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-2",
+                reason = "Can be done later.",
+                suggestedOrder = 1
+            ),
+            TaskSuggestion(
+                taskId = "task-3",
+                reason = "Low priority.",
+                suggestedOrder = 2
+            )
+        )
+
+        whenever(observeTasksUseCase()).thenReturn(
+            MutableStateFlow(tasks)
+        )
+
+        whenever(
+            generateTaskSuggestionsUseCase(tasks)
+        ).thenReturn(suggestions)
+
+        val viewModel = getViewModel()
+
+        viewModel.generatePlan()
+
+        viewModel.moveSuggestion(
+            fromIndex = 0,
+            toIndex = 2
+        )
+
+        viewModel.applyPlan()
+
+        advanceUntilIdle()
+
+        val expectedTasks = listOf(
+            tasks[1].copy(position = 0),
+            tasks[2].copy(position = 1),
+            tasks[0].copy(position = 2)
+        )
+
+        verify(reorderTasksUseCase).invoke(expectedTasks)
+
+        assertEquals(
+            false,
+            viewModel.uiState.value.isApplying
+        )
+
+        assertEquals(
+            emptyList<TaskSuggestion>(),
+            viewModel.uiState.value.suggestions
+        )
+
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `should not reorder suggestions while applying plan`() = runTest {
+        val tasks = listOf(
+            createTask("task-1", "Finish report").copy(position = 0),
+            createTask("task-2", "Buy groceries").copy(position = 1)
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "High priority.",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-2",
+                reason = "Can be done later.",
+                suggestedOrder = 1
+            )
+        )
+
+        val deferred = CompletableDeferred<Unit>()
+
+        whenever(observeTasksUseCase()).thenReturn(
+            MutableStateFlow(tasks)
+        )
+
+        whenever(
+            generateTaskSuggestionsUseCase(tasks)
+        ).thenReturn(suggestions)
+
+        doSuspendableAnswer {
+            deferred.await()
+        }.whenever(reorderTasksUseCase).invoke(any())
+
+        val viewModel = getViewModel()
+
+        viewModel.generatePlan()
+
+        viewModel.applyPlan()
+
+        assertEquals(
+            true,
+            viewModel.uiState.value.isApplying
+        )
+
+        viewModel.moveSuggestion(
+            fromIndex = 0,
+            toIndex = 1
+        )
+
+        assertEquals(
+            suggestions,
+            viewModel.uiState.value.suggestions
+        )
+
+        deferred.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(
+            false,
+            viewModel.uiState.value.isApplying
+        )
+
+        verify(reorderTasksUseCase).invoke(tasks)
+    }
+
     private fun createTask(
         id: String,
         title: String

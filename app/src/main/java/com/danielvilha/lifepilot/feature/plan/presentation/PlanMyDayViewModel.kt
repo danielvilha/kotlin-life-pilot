@@ -177,6 +177,39 @@ class PlanMyDayViewModel @Inject constructor(
         }
     }
 
+    fun moveSuggestion(fromIndex: Int, toIndex: Int) {
+        val currentState = _uiState.value
+
+        if (
+            currentState.isLoading ||
+            currentState.isApplying ||
+            currentState.suggestions.isEmpty() ||
+            currentState.tasks != currentState.planningSnapshot
+        ) return
+
+        val suggestions = currentState.suggestions
+            .sortedBy { it.suggestedOrder }
+            .toMutableList()
+
+        if (
+            fromIndex !in suggestions.indices ||
+            toIndex !in suggestions.indices ||
+            fromIndex == toIndex
+        ) return
+
+        val movedSuggestion = suggestions.removeAt(fromIndex)
+
+        suggestions.add(toIndex, movedSuggestion)
+
+        val reorderedSuggestions = suggestions.mapIndexed { index, suggestion ->
+            suggestion.copy(suggestedOrder = index)
+        }
+
+        _uiState.value = currentState.copy(
+            suggestions = reorderedSuggestions
+        )
+    }
+
     private fun observeTasks() {
         viewModelScope.launch {
             observeTasksUseCase().collect { tasks ->
