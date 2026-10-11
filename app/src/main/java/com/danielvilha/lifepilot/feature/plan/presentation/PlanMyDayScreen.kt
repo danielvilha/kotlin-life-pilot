@@ -3,6 +3,7 @@ package com.danielvilha.lifepilot.feature.plan.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +14,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -65,7 +69,7 @@ fun PlanMyDayScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlanMyDayContent(
+internal fun PlanMyDayContent(
     uiState: PlanMyDayUiState,
     onGeneratePlanClick: () -> Unit,
     onApplyPlanClick: () -> Unit,
@@ -93,6 +97,9 @@ private fun PlanMyDayContent(
     val hasPendingTasks = uiState.tasks.any { task ->
         !task.completed
     }
+
+    val isPlanOutdated = uiState.suggestions.isNotEmpty() &&
+            uiState.tasks != uiState.planningSnapshot
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -165,6 +172,44 @@ private fun PlanMyDayContent(
                 )
             }
 
+            if (isPlanOutdated && !uiState.isLoading && uiState.error == null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.WarningAmber,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Your plan needs updating",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+
+                            Text(
+                                text = "Your tasks have changed since this plan was generated. " +
+                                        "Regenerate your plan to get updated suggestions.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
+
             if (!hasPendingTasks && !uiState.isLoading) {
                 Text(
                     text = "You don't have any pending tasks to plan.",
@@ -204,8 +249,7 @@ private fun PlanMyDayContent(
                 Button(
                     onClick = onApplyPlanClick,
                     enabled = !uiState.isApplying &&
-                            !uiState.isLoading &&
-                            plannedTasks.isNotEmpty(),
+                            !isPlanOutdated,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (uiState.isApplying) {
@@ -217,9 +261,9 @@ private fun PlanMyDayContent(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        Text("Applying Plan...")
+                        Text(text = "Applying Plan...")
                     } else {
-                        Text("Apply This Plan")
+                        Text(text = "Apply This Plan")
                     }
                 }
             }
@@ -242,7 +286,22 @@ private fun PlanMyDayScreenPreview() {
                     category = TaskCategory.WORK,
                     position = 1
                 )
-            )
+            ),
+        ),
+        onGeneratePlanClick = {},
+        onApplyPlanClick = {},
+        onBackClick = {}
+    )
+}
+
+@Preview(showSystemUi = true)
+@Composable
+private fun PlanMyDayScreenErrorPreview() {
+    PlanMyDayContent(
+        uiState = PlanMyDayUiState(
+            tasks = listOf(),
+            error = "Something went wrong",
+            isLoading = true,
         ),
         onGeneratePlanClick = {},
         onApplyPlanClick = {},
