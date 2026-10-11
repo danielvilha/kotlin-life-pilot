@@ -1300,6 +1300,67 @@ class PlanMyDayViewModelTest {
         )
     }
 
+    @Test
+    fun `should discard plan when task is completed during generation`() = runTest {
+        val tasks = listOf(
+            createTask("task-1", "Finish report"),
+            createTask("task-2", "Buy groceries")
+        )
+
+        val suggestions = listOf(
+            TaskSuggestion(
+                taskId = "task-1",
+                reason = "Higher priority.",
+                suggestedOrder = 0
+            ),
+            TaskSuggestion(
+                taskId = "task-2",
+                reason = "Can be completed later.",
+                suggestedOrder = 1
+            )
+        )
+
+        val tasksFlow = MutableStateFlow(tasks)
+        val deferred = CompletableDeferred<List<TaskSuggestion>>()
+
+        whenever(observeTasksUseCase()).thenReturn(tasksFlow)
+
+        doSuspendableAnswer {
+            deferred.await()
+        }.whenever(
+            generateTaskSuggestionsUseCase
+        ).invoke(tasks)
+
+        val viewModel = getViewModel()
+
+        viewModel.generatePlan()
+
+        assertEquals(true, viewModel.uiState.value.isLoading)
+
+        tasksFlow.value = tasks.map { task ->
+            if (task.id == "task-1") {
+                task.copy(completed = true)
+            } else {
+                task
+            }
+        }
+
+        deferred.complete(suggestions)
+        advanceUntilIdle()
+
+        assertEquals(
+            emptyList<TaskSuggestion>(),
+            viewModel.uiState.value.suggestions
+        )
+
+        assertEquals(
+            "Your tasks have changed. Please generate a new plan.",
+            viewModel.uiState.value.error
+        )
+
+        assertEquals(false, viewModel.uiState.value.isLoading)
+    }
+
     private fun createTask(
         id: String,
         title: String
