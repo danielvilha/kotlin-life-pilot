@@ -6,13 +6,9 @@ Built with **Kotlin**, **Jetpack Compose**, and a layered architecture, LifePilo
 
 > **Project status:** Active development. This README distinguishes implemented functionality from ideas on the roadmap.
 
-## Screenshots
+## Screen recording
 
-Screenshots will be added from the running Android app. Suggested captures:
-
-| Home / Tasks   | AI Task Creation  | Edit Task      | Plan My Day    |
-|----------------|-------------------|----------------|----------------|
-| _Coming soon_  | _Coming soon_     | _Coming soon_  | _Coming soon_  |
+![AI Task Creation](images/ai-task-creation.gif)
 
 ## Features Implemented
 
