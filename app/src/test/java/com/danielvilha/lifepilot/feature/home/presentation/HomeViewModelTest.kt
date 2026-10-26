@@ -52,31 +52,6 @@ class HomeViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createTasks(
-        count: Int,
-        completed: Boolean = false
-    ): List<Task> {
-        return List(count) { index ->
-            Task(
-                id = "${index + 1}",
-                title = "Task ${index + 1}",
-                description = "Description ${index + 1}",
-                dueDate = LocalDate.of(2026, 9, 26).plusDays(index.toLong()),
-                priority = Priority.MEDIUM,
-                category = TaskCategory.PERSONAL,
-                completed = completed,
-                position = index
-            )
-        }
-    }
-
-    private fun createViewModel() = HomeViewModel(
-        observeTasksUseCase = observeTasksUseCase,
-        reorderTasksUseCase = reorderTasksUseCase,
-        deleteTaskUseCase = deleteTaskUseCase,
-        updateTaskCompletionUseCase = updateTaskCompletionUseCase,
-    )
-
     @Test
     fun `should expose observed tasks in ui state`() = runTest {
         val tasks = createTasks(2)
@@ -352,4 +327,29 @@ class HomeViewModelTest {
 
         verify(reorderTasksUseCase).invoke(tasks)
     }
+
+    private fun createTasks(
+        count: Int,
+        completed: Boolean = false
+    ): List<Task> {
+        return List(count) { index ->
+            Task(
+                id = "${index + 1}",
+                title = "Task ${index + 1}",
+                description = "Description ${index + 1}",
+                dueDate = LocalDate.of(2026, 9, 26).plusDays(index.toLong()),
+                priority = Priority.MEDIUM,
+                category = TaskCategory.PERSONAL,
+                completed = completed,
+                position = index
+            )
+        }
+    }
+
+    private fun createViewModel() = HomeViewModel(
+        observeTasksUseCase = observeTasksUseCase,
+        reorderTasksUseCase = reorderTasksUseCase,
+        deleteTaskUseCase = deleteTaskUseCase,
+        updateTaskCompletionUseCase = updateTaskCompletionUseCase,
+    )
 }

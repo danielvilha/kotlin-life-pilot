@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -43,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -51,6 +53,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danielvilha.lifepilot.domain.model.Priority
 import com.danielvilha.lifepilot.domain.model.Task
 import com.danielvilha.lifepilot.domain.model.TaskCategory
+import com.danielvilha.lifepilot.feature.home.presentation.components.DailyProgressCard
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -89,7 +92,7 @@ fun HomeScreen(
         }
     }
 
-    HomeScreen(
+    HomeContent(
         uiState = uiState,
         onCreateTask = onCreateTask,
         onEditTask = onEditTask,
@@ -102,7 +105,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeScreen(
+internal fun HomeContent(
     uiState: HomeUiState,
     onCreateTask: () -> Unit,
     onEditTask: (String) -> Unit,
@@ -115,6 +118,7 @@ private fun HomeScreen(
     val lazyListState = rememberLazyListState()
 
     val tasks = remember { mutableStateListOf<Task>() }
+
     LaunchedEffect(uiState.tasks) {
         tasks.clear()
         tasks.addAll(uiState.tasks)
@@ -146,28 +150,57 @@ private fun HomeScreen(
             }
         }
     ) { paddingValues ->
-        if (uiState.tasks.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(text = "Today's Tasks")
-                Text(text = "No tasks yet.")
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Today's Tasks")
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Today's Tasks",
+                style = MaterialTheme.typography.headlineSmall
+            )
 
+            DailyProgressCard(
+                progress = uiState.dailyProgress
+            )
+
+            if (uiState.tasks.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Checklist,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(bottom = 24.dp)
+                            .width(72.dp)
+                            .height(72.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+
+                    Text(
+                        text = "Your day starts here!",
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Create your first task and start making progress.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+            } else {
                 Button(
                     onClick = onPlanMyDay,
                     modifier = Modifier.fillMaxWidth()
@@ -187,10 +220,12 @@ private fun HomeScreen(
                         items = tasks,
                         key = { task -> task.id }
                     ) { task ->
+
                         ReorderableItem(
                             state = reorderableState,
                             key = task.id
                         ) { isDragging ->
+
                             TaskCard(
                                 task = task,
                                 reorderableScope = this,
@@ -383,7 +418,7 @@ private fun TaskCard(
 @Preview(showSystemUi = true)
 @Composable
 private fun HomeScreenPreview() {
-    HomeScreen(
+    HomeContent(
         uiState = HomeUiState(
             tasks = listOf(
                 Task(
@@ -396,6 +431,23 @@ private fun HomeScreenPreview() {
                     position = 1
                 )
             )
+        ),
+        onEditTask = {},
+        onPlanMyDay = {},
+        onCreateTask = {},
+        onToggleCompleted = {},
+        onTasksReordered = {},
+        onDeleteTask = {},
+        snackbarHostState = SnackbarHostState()
+    )
+}
+
+@Preview(showSystemUi = true)
+@Composable
+private fun HomeScreenEmptyPreview() {
+    HomeContent(
+        uiState = HomeUiState(
+            tasks = listOf()
         ),
         onEditTask = {},
         onPlanMyDay = {},
