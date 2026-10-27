@@ -3,7 +3,9 @@ package com.danielvilha.lifepilot.feature.home.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.danielvilha.lifepilot.domain.model.Task
+import com.danielvilha.lifepilot.domain.model.TaskFilter
 import com.danielvilha.lifepilot.domain.usecase.DeleteTaskUseCase
+import com.danielvilha.lifepilot.domain.usecase.FilterTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.ObserveTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.ReorderTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.UpdateTaskCompletionUseCase
@@ -23,7 +25,8 @@ class HomeViewModel @Inject constructor(
     observeTasksUseCase: ObserveTasksUseCase,
     private val reorderTasksUseCase: ReorderTasksUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase,
-    private val updateTaskCompletionUseCase: UpdateTaskCompletionUseCase
+    private val updateTaskCompletionUseCase: UpdateTaskCompletionUseCase,
+    private val filterTasksUseCase: FilterTasksUseCase
 ) : ViewModel() {
 
     private val _events = MutableSharedFlow<HomeUiEvent>()
@@ -32,22 +35,33 @@ class HomeViewModel @Inject constructor(
     private val _isDeleting = MutableStateFlow(false)
     private val _isUpdatingCompletion = MutableStateFlow(false)
 
-    val uiState: StateFlow<HomeUiState> =
-        combine(
-            observeTasksUseCase(),
-            _isDeleting,
-            _isUpdatingCompletion
-        ) { tasks, isDeleting, isUpdatingCompletion ->
-            HomeUiState(
+    private val _selectedFilter = MutableStateFlow(TaskFilter.ALL)
+
+    val uiState: StateFlow<HomeUiState> = combine(
+        observeTasksUseCase(),
+        _isDeleting,
+        _isUpdatingCompletion,
+        _selectedFilter
+    ) { tasks, isDeleting, isUpdatingCompletion, selectedFilter ->
+        HomeUiState(
+            tasks = tasks,
+            selectedFilter = selectedFilter,
+            filteredTasks = filterTasksUseCase(
                 tasks = tasks,
-                isDeleting = isDeleting,
-                isUpdatingCompletion = isUpdatingCompletion
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = HomeUiState()
+                filter = selectedFilter
+            ),
+            isDeleting = isDeleting,
+            isUpdatingCompletion = isUpdatingCompletion
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = HomeUiState()
+    )
+
+    fun selectFilter(filter: TaskFilter) {
+        _selectedFilter.value = filter
+    }
 
     fun onTasksReordered(tasks: List<Task>) {
         viewModelScope.launch {
