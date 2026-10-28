@@ -73,4 +73,41 @@ class ReorderTasksUseCaseTest {
             )
         )
     }
+
+    @Test
+    fun `should update task positions according to reordered list`() = runTest {
+        val task1 = createTask(id = "1", completed = false)
+        val task2 = createTask(id = "2", completed = false)
+        val task3 = createTask(id = "3", completed = false)
+
+        val reorderedTasks = listOf(
+            task3.copy(position = 2),
+            task1.copy(position = 0),
+            task2.copy(position = 1)
+        )
+
+        reorderTasksUseCase(reorderedTasks)
+
+        verify(taskRepository).updateTaskOrder(
+            listOf(
+                task3.copy(position = 0),
+                task1.copy(position = 1),
+                task2.copy(position = 2)
+            )
+        )
+    }
+
+    private fun createTask(
+        id: String,
+        completed: Boolean = false
+    ) = Task(
+        id = id,
+        title = "Task $id",
+        description = null,
+        dueDate = null,
+        priority = Priority.MEDIUM,
+        category = TaskCategory.WORK,
+        position = id.toInt(),
+        completed = completed
+    )
 }

@@ -14,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.danielvilha.lifepilot.domain.model.Priority
 import com.danielvilha.lifepilot.domain.model.Task
 import com.danielvilha.lifepilot.domain.model.TaskCategory
+import com.danielvilha.lifepilot.domain.model.TaskFilter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -42,6 +43,7 @@ class HomeContentTest {
                     onTasksReordered = {},
                     onToggleCompleted = {},
                     onDeleteTask = {},
+                    onFilterSelected = {},
                     snackbarHostState = SnackbarHostState()
                 )
             }
@@ -113,6 +115,7 @@ class HomeContentTest {
                     onTasksReordered = {},
                     onToggleCompleted = {},
                     onDeleteTask = {},
+                    onFilterSelected = {},
                     snackbarHostState = SnackbarHostState()
                 )
             }
@@ -174,6 +177,7 @@ class HomeContentTest {
                         toggledTask = selectedTask
                     },
                     onDeleteTask = {},
+                    onFilterSelected = {},
                     snackbarHostState = SnackbarHostState()
                 )
             }
@@ -218,6 +222,7 @@ class HomeContentTest {
                     onTasksReordered = {},
                     onToggleCompleted = {},
                     onDeleteTask = {},
+                    onFilterSelected = {},
                     snackbarHostState = SnackbarHostState()
                 )
             }
@@ -279,6 +284,7 @@ class HomeContentTest {
                     onTasksReordered = {},
                     onToggleCompleted = {},
                     onDeleteTask = {},
+                    onFilterSelected = {},
                     snackbarHostState = SnackbarHostState()
                 )
             }
@@ -291,5 +297,127 @@ class HomeContentTest {
         composeTestRule.runOnIdle {
             assertTrue(planMyDayClicked)
         }
+    }
+
+    @Test
+    fun shouldPreserveTaskOrderAfterSwitchingFilters() {
+        val tasks = listOf(
+            Task(
+                id = "task-1",
+                title = "Write unit tests",
+                description = null,
+                dueDate = null,
+                priority = Priority.HIGH,
+                category = TaskCategory.WORK,
+                position = 0,
+                completed = false
+            ),
+            Task(
+                id = "task-2",
+                title = "Fix UI bugs",
+                description = null,
+                dueDate = null,
+                priority = Priority.HIGH,
+                category = TaskCategory.WORK,
+                position = 1,
+                completed = true
+            ),
+            Task(
+                id = "task-3",
+                title = "Review pull requests",
+                description = null,
+                dueDate = null,
+                priority = Priority.HIGH,
+                category = TaskCategory.WORK,
+                position = 2,
+                completed = false
+            )
+        )
+
+        var selectedFilter by mutableStateOf(TaskFilter.ALL)
+
+        composeTestRule.setContent {
+            MaterialTheme {
+                val filteredTasks = when (selectedFilter) {
+                    TaskFilter.ALL -> tasks
+                    TaskFilter.PENDING -> tasks.filter { !it.completed }
+                    TaskFilter.COMPLETED -> tasks.filter { it.completed }
+                }
+
+                HomeContent(
+                    uiState = HomeUiState(
+                        tasks = tasks,
+                        selectedFilter = selectedFilter,
+                        filteredTasks = filteredTasks
+                    ),
+                    onCreateTask = {},
+                    onEditTask = {},
+                    onPlanMyDay = {},
+                    onTasksReordered = {},
+                    onToggleCompleted = {},
+                    onDeleteTask = {},
+                    onFilterSelected = { selectedFilter = it },
+                    snackbarHostState = SnackbarHostState()
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Write unit tests").assertExists()
+        composeTestRule.onNodeWithText("Fix UI bugs").assertExists()
+        composeTestRule.onNodeWithText("Review pull requests").assertExists()
+
+        composeTestRule.runOnIdle {
+            selectedFilter = TaskFilter.PENDING
+        }
+
+        composeTestRule.onNodeWithText("Write unit tests").assertExists()
+        composeTestRule.onNodeWithText("Review pull requests").assertExists()
+        composeTestRule.onNodeWithText("Fix UI bugs").assertDoesNotExist()
+
+        composeTestRule.runOnIdle {
+            selectedFilter = TaskFilter.COMPLETED
+        }
+
+        composeTestRule.onNodeWithText("Fix UI bugs").assertExists()
+        composeTestRule.onNodeWithText("Write unit tests").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Review pull requests").assertDoesNotExist()
+
+        composeTestRule.runOnIdle {
+            selectedFilter = TaskFilter.ALL
+        }
+
+        composeTestRule.onNodeWithText("Write unit tests").assertExists()
+        composeTestRule.onNodeWithText("Fix UI bugs").assertExists()
+        composeTestRule.onNodeWithText("Review pull requests").assertExists()
+
+        composeTestRule.waitForIdle()
+
+        val firstTaskY = composeTestRule
+            .onNodeWithText("Write unit tests")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .top
+
+        val secondTaskY = composeTestRule
+            .onNodeWithText("Fix UI bugs")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .top
+
+        val thirdTaskY = composeTestRule
+            .onNodeWithText("Review pull requests")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .top
+
+        assertTrue(
+            "Write unit tests should appear before Fix UI bugs",
+            firstTaskY < secondTaskY
+        )
+
+        assertTrue(
+            "Fix UI bugs should appear before Review pull requests",
+            secondTaskY < thirdTaskY
+        )
     }
 }

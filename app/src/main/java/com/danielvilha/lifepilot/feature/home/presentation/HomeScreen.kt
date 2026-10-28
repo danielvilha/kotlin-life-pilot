@@ -37,11 +37,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -53,7 +54,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.danielvilha.lifepilot.domain.model.Priority
 import com.danielvilha.lifepilot.domain.model.Task
 import com.danielvilha.lifepilot.domain.model.TaskCategory
+import com.danielvilha.lifepilot.domain.model.TaskFilter
 import com.danielvilha.lifepilot.feature.home.presentation.components.DailyProgressCard
+import com.danielvilha.lifepilot.feature.home.presentation.components.TaskFilterBar
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -100,6 +103,7 @@ fun HomeScreen(
         onTasksReordered = viewModel::onTasksReordered,
         onToggleCompleted = viewModel::toggleTaskCompleted,
         onDeleteTask = viewModel::deleteTask,
+        onFilterSelected = viewModel::selectFilter,
         snackbarHostState = snackbarHostState
     )
 }
@@ -113,26 +117,9 @@ internal fun HomeContent(
     onTasksReordered: (List<Task>) -> Unit,
     onToggleCompleted: (Task) -> Unit,
     onDeleteTask: (Task) -> Unit,
+    onFilterSelected: (TaskFilter) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
-    val lazyListState = rememberLazyListState()
-
-    val tasks = remember { mutableStateListOf<Task>() }
-
-    LaunchedEffect(uiState.tasks) {
-        tasks.clear()
-        tasks.addAll(uiState.tasks)
-    }
-
-    val reorderableState = rememberReorderableLazyListState(
-        lazyListState
-    ) { from, to ->
-        tasks.add(
-            to.index,
-            tasks.removeAt(from.index)
-        )
-    }
-
     Scaffold(
         snackbarHost = {
             SnackbarHost(
@@ -164,6 +151,11 @@ internal fun HomeContent(
 
             DailyProgressCard(
                 progress = uiState.dailyProgress
+            )
+
+            TaskFilterBar(
+                selectedFilter = uiState.selectedFilter,
+                onFilterSelected = onFilterSelected
             )
 
             if (uiState.tasks.isEmpty()) {
@@ -208,39 +200,57 @@ internal fun HomeContent(
                     Text(text = "Plan My Day")
                 }
 
-                LazyColumn(
-                    state = lazyListState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp)
-                ) {
-                    items(
-                        items = tasks,
-                        key = { task -> task.id }
-                    ) { task ->
+                key(uiState.selectedFilter) {
+                    val lazyListState = rememberLazyListState()
 
-                        ReorderableItem(
-                            state = reorderableState,
-                            key = task.id
-                        ) { isDragging ->
+                    val tasks = remember(uiState.filteredTasks) {
+                        uiState.filteredTasks.toMutableStateList()
+                    }
 
-                            TaskCard(
-                                task = task,
-                                reorderableScope = this,
-                                onDragStopped = {
-                                    onTasksReordered(tasks.toList())
-                                },
-                                onEditClick = {
-                                    onEditTask(task.id)
-                                },
-                                onToggleCompleted = onToggleCompleted,
-                                onDeleteClick = onDeleteTask,
-                                isDragging = isDragging,
-                                isDeleting = uiState.isDeleting,
-                                isUpdatingCompletion = uiState.isUpdatingCompletion
-                            )
+                    val reorderableState = rememberReorderableLazyListState(
+                        lazyListState
+                    ) { from, to ->
+                        tasks.add(
+                            to.index,
+                            tasks.removeAt(from.index)
+                        )
+                    }
+
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        items(
+                            items = tasks,
+                            key = { task -> task.id }
+                        ) { task ->
+                            ReorderableItem(
+                                state = reorderableState,
+                                key = task.id
+                            ) { isDragging ->
+                                TaskCard(
+                                    task = task,
+                                    reorderableScope = this,
+                                    onDragStopped = {
+                                        if (uiState.selectedFilter == TaskFilter.ALL) {
+                                            onTasksReordered(tasks.toList())
+                                        }
+                                    },
+                                    onEditClick = {
+                                        onEditTask(task.id)
+                                    },
+                                    onToggleCompleted = onToggleCompleted,
+                                    onDeleteClick = onDeleteTask,
+                                    isDragging = isDragging,
+                                    isDeleting = uiState.isDeleting,
+                                    isReorderEnabled = uiState.selectedFilter == TaskFilter.ALL,
+                                    isUpdatingCompletion = uiState.isUpdatingCompletion
+                                )
+                            }
                         }
                     }
                 }
@@ -259,6 +269,7 @@ private fun TaskCard(
     onDeleteClick: (Task) -> Unit,
     isDragging: Boolean,
     isDeleting: Boolean,
+    isReorderEnabled: Boolean,
     isUpdatingCompletion: Boolean
 ) {
     val elevation by animateDpAsState(
@@ -328,10 +339,19 @@ private fun TaskCard(
             Icon(
                 imageVector = Icons.Default.DragHandle,
                 contentDescription = "Reorder task",
-                modifier = with(reorderableScope) {
-                    Modifier.draggableHandle(
-                        onDragStopped = onDragStopped
-                    )
+                modifier = if (isReorderEnabled) {
+                    with(reorderableScope) {
+                        Modifier.draggableHandle(
+                            onDragStopped = onDragStopped
+                        )
+                    }
+                } else {
+                    Modifier
+                },
+                tint = if (isReorderEnabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 }
             )
 
@@ -438,6 +458,7 @@ private fun HomeScreenPreview() {
         onToggleCompleted = {},
         onTasksReordered = {},
         onDeleteTask = {},
+        onFilterSelected = {},
         snackbarHostState = SnackbarHostState()
     )
 }
@@ -455,6 +476,7 @@ private fun HomeScreenEmptyPreview() {
         onToggleCompleted = {},
         onTasksReordered = {},
         onDeleteTask = {},
+        onFilterSelected = {},
         snackbarHostState = SnackbarHostState()
     )
 }

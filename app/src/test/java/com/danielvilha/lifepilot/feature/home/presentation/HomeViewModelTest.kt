@@ -3,7 +3,9 @@ package com.danielvilha.lifepilot.feature.home.presentation
 import com.danielvilha.lifepilot.domain.model.Priority
 import com.danielvilha.lifepilot.domain.model.Task
 import com.danielvilha.lifepilot.domain.model.TaskCategory
+import com.danielvilha.lifepilot.domain.model.TaskFilter
 import com.danielvilha.lifepilot.domain.usecase.DeleteTaskUseCase
+import com.danielvilha.lifepilot.domain.usecase.FilterTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.ObserveTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.ReorderTasksUseCase
 import com.danielvilha.lifepilot.domain.usecase.UpdateTaskCompletionUseCase
@@ -36,6 +38,8 @@ class HomeViewModelTest {
     private lateinit var deleteTaskUseCase: DeleteTaskUseCase
     private lateinit var updateTaskCompletionUseCase: UpdateTaskCompletionUseCase
 
+    private lateinit var filterTasksUseCase: FilterTasksUseCase
+
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -45,6 +49,7 @@ class HomeViewModelTest {
         reorderTasksUseCase = mock()
         deleteTaskUseCase = mock()
         updateTaskCompletionUseCase = mock()
+        filterTasksUseCase = FilterTasksUseCase()
     }
 
     @After
@@ -328,6 +333,44 @@ class HomeViewModelTest {
         verify(reorderTasksUseCase).invoke(tasks)
     }
 
+    @Test
+    fun `should update selected filter when pending is selected`() = runTest {
+        val tasks = listOf(
+            createTask(id = 1, completed = true),
+            createTask(id = 2, completed = false),
+            createTask(id = 3, completed = true)
+        )
+
+        whenever(observeTasksUseCase()).thenReturn(flowOf(tasks))
+
+        viewModel = createViewModel()
+
+        val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect { }
+        }
+
+        try {
+            viewModel.selectFilter(TaskFilter.PENDING)
+
+            val state = viewModel.uiState.value
+
+            assertEquals(
+                TaskFilter.PENDING,
+                state.selectedFilter
+            )
+
+            assertEquals(
+                listOf("2"),
+                state.filteredTasks.map { it.id }
+            )
+
+            assertEquals(3, state.dailyProgress.totalTasks)
+            assertEquals(2, state.dailyProgress.completedTasks)
+        } finally {
+            collectJob.cancel()
+        }
+    }
+
     private fun createTasks(
         count: Int,
         completed: Boolean = false
@@ -346,10 +389,27 @@ class HomeViewModelTest {
         }
     }
 
+    private fun createTask(
+        id: Int,
+        completed: Boolean = false
+    ): Task {
+        return Task(
+            id = "$id",
+            title = "Task $id",
+            description = "Description $id",
+            dueDate = LocalDate.of(2026, 9, 26),
+            priority = Priority.MEDIUM,
+            category = TaskCategory.PERSONAL,
+            completed = completed,
+            position = id
+        )
+    }
+
     private fun createViewModel() = HomeViewModel(
         observeTasksUseCase = observeTasksUseCase,
         reorderTasksUseCase = reorderTasksUseCase,
         deleteTaskUseCase = deleteTaskUseCase,
         updateTaskCompletionUseCase = updateTaskCompletionUseCase,
+        filterTasksUseCase = filterTasksUseCase
     )
 }
